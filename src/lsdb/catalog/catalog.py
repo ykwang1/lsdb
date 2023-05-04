@@ -5,6 +5,7 @@ from typing import TYPE_CHECKING, Dict, Tuple
 
 import dask.dataframe as dd
 import hipscat as hc
+from dask.delayed import Delayed
 from hipscat.pixel_math import HealpixPixel
 import numpy as np
 
@@ -19,6 +20,10 @@ if TYPE_CHECKING:
         AssociationCatalog
 
 DaskDFPixelMap = Dict[HealpixPixel, int]
+
+
+def group_by_hc_apply(df, ufunc, **kwargs):
+    return df.groupby("_hipscat_index").apply(ufunc, **kwargs)
 
 
 # pylint: disable=R0903, W0212
@@ -126,10 +131,9 @@ class Catalog(Dataset):
     def for_each(self, ufunc, **kwargs) -> Catalog:
         if "cat_info" not in kwargs.keys():
             kwargs["cat_info"] = self.hc_structure.catalog_info
-        ddf = self._ddf.groupby("_hipscat_index").apply(ufunc, **kwargs)
+        ddf = dd.map_partitions(group_by_hc_apply, self._ddf, ufunc, **kwargs)
         return Catalog(ddf, self._ddf_pixel_map, self.hc_structure)
     
-    def compute_skymap(self, col, f=np.mean, k=6) -> np.ndarray:
+    def skymap(self, col, f=np.mean, k=6) -> Delayed[np.ndarray]:
         img = skymap_catalog_data(self, col=col, order=k, func=f)
         return img
-

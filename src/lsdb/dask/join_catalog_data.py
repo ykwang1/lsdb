@@ -53,7 +53,9 @@ def perform_join(left: pd.DataFrame, right: pd.DataFrame, through: pd.DataFrame,
     left = left.rename(columns=left_columns_renamed)
     right_columns_renamed = {name: name + suffixes[1] for name in right.columns}
     right = right.rename(columns=right_columns_renamed)
-    return left.merge(through, left_index=True, right_index=True).merge(right, left_on="join_hipscat_index", right_index=True)
+    result = left.merge(through, left_index=True, right_index=True).merge(right, left_on="join_hipscat_index", right_index=True)
+    result.index.name = "_hipscat_index"
+    return result
 
 
 @dask.delayed
@@ -63,6 +65,8 @@ def perform_join_on(left: pd.DataFrame, right: pd.DataFrame, on: str):
 
 @dask.delayed
 def filter_index_to_range(df: pd.DataFrame, lower: int, upper: int):
+    if len(df) == 0:
+        return df
     return df.loc[lower:upper]
 
 
