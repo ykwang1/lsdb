@@ -87,7 +87,7 @@ class HipscatCatalogLoader:
         self, catalog: hc.catalog.Catalog, paths: list[hc.io.FilePointer]
     ) -> dd.core.DataFrame:
         metadata_schema = self._load_parquet_metadata_schema(catalog, paths)
-        dask_meta_schema = metadata_schema.empty_table().to_pandas().set_index("_hipscat_index")
+        dask_meta_schema = metadata_schema.empty_table().to_pandas()
         ddf = dd.from_map(io.read_parquet_file_to_pandas, paths, meta=dask_meta_schema)
         return ddf
 
