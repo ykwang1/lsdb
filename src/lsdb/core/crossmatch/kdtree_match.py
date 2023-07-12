@@ -18,6 +18,9 @@ def kd_tree_crossmatch(
         n_neighbors=1,
         dthresh=0.01):
 
+    left = left.copy(deep=False)
+    right = right.copy(deep=False)
+
     (clon, clat) = hp.pix2ang(hp.order2nside(order), pixel, nest=True, lonlat=True)
     left_md = {'ra_kw': left_metadata.catalog_info.ra_column,
                'dec_kw': left_metadata.catalog_info.dec_column}
@@ -33,31 +36,47 @@ def kd_tree_crossmatch(
     dists, inds = tree.query(xy1, k=min([n_neighbors, len(xy2)]))
 
     left_columns_renamed = {name: name + suffixes[0] for name in left.columns}
-    left = left.rename(columns=left_columns_renamed)
+    left.rename(columns=left_columns_renamed, inplace=True)
     right_columns_renamed = {name: name + suffixes[1] for name in right.columns}
-    right = right.rename(columns=right_columns_renamed)
+    right.rename(columns=right_columns_renamed, inplace=True)
 
     # numpy indice magic for the joining of the two catalogs
-    outIdx = np.arange(
-        len(left) * n_neighbors)  # index of each row in the output table (0... number of output rows)
+    outIdx = np.arange(len(left) * n_neighbors)  # index of each row in the output table (0... number of output rows)
     leftIdx = outIdx // n_neighbors  # index of the corresponding row in the left table (0, 0, 0, 1, 1, 1, 2, 2, 2, ...)
     rightIdx = inds.ravel()  # index of the corresponding row in the right table (22, 33, 44, 55, 66, ...)
     left.index.name = "_hipscat_index"
-    out = pd.concat(
+    left_radec = left[[left_md['ra_kw'] + suffixes[0], left_md['dec_kw'] + suffixes[0]]]
+    left_radec_join_part = left_radec.iloc[leftIdx].reset_index(drop=True)
+    right_radec = right[[right_md['ra_kw'] + suffixes[1], right_md['dec_kw'] + suffixes[1]]]
+    right_radec_join_part = right_radec.iloc[rightIdx].reset_index(drop=True)
+    distances = pd.concat(
         [
-            left.iloc[leftIdx].reset_index(),  # select the rows of the left table
-            right.iloc[rightIdx].reset_index(drop=True)  # select the rows of the right table
+            left_radec_join_part,  # select the rows of the left table
+            right_radec_join_part  # select the rows of the right table
         ], axis=1)  # concat the two tables "horizontally" (i.e., join columns, not append rows)
-    out = out.set_index("_hipscat_index")
+    distances["_left_idx"] = leftIdx
+    distances["_right_idx"] = rightIdx
 
     # save the order/pix/and distances for each nearest neighbor
-    out["_DIST"] = gc_dist(
-        out[left_md['ra_kw'] + suffixes[0]], out[left_md['dec_kw'] + suffixes[0]],
-        out[right_md['ra_kw'] + suffixes[1]], out[right_md['dec_kw'] + suffixes[1]]
+    distances["_DIST"] = gc_dist(
+        distances[left_md['ra_kw'] + suffixes[0]], distances[left_md['dec_kw'] + suffixes[0]],
+        distances[right_md['ra_kw'] + suffixes[1]], distances[right_md['dec_kw'] + suffixes[1]]
     )
 
     # cull the return dataframe based on the distance threshold
-    out = out.loc[out['_DIST'] < dthresh]
+    distances = distances.loc[distances['_DIST'] < dthresh]
+    left_ids_filtered = distances["_left_idx"]
+    right_ids_filtered = distances["_right_idx"]
+    left_join_part = left.iloc[left_ids_filtered].reset_index()
+    right_join_part = right.iloc[right_ids_filtered].reset_index(drop=True)
+    out = pd.concat(
+        [
+            left_join_part,  # select the rows of the left table
+            right_join_part  # select the rows of the right table
+        ], axis=1)
+    out.set_index("_hipscat_index", inplace=True)
+    out["_DIST"] = distances["_DIST"].to_numpy()
+
     return out
 
 
