@@ -9,7 +9,7 @@ import hipscat as hc
 from hipscat.catalog.association_catalog.partition_join_info import \
     PartitionJoinInfo
 from hipscat.pixel_math import HealpixPixel
-from hipscat.pixel_tree import PixelAlignmentType, PixelAlignment
+from hipscat.pixel_tree import PixelAlignmentType, PixelAlignment, align_trees
 
 if TYPE_CHECKING:
     from lsdb.catalog.association_catalog.association_catalog import \
@@ -96,7 +96,7 @@ def join_catalog_data(
         join_pixel_col=PartitionJoinInfo.JOIN_PIXEL_COLUMN_NAME,
     )
     joined_partitions = [perform_join(left_df, right_df, join_df, suffixes) for left_df, right_df, join_df in zip(left_aligned_to_join_partitions, right_aligned_to_join_partitions, association_aligned_to_join_partitions)]
-    alignment = PixelAlignment.align_trees(
+    alignment = align_trees(
         left.hc_structure.pixel_tree,
         right.hc_structure.pixel_tree,
         alignment_type=PixelAlignmentType.LEFT

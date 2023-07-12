@@ -9,7 +9,7 @@ import dask.dataframe as dd
 import hipscat as hc
 from hipscat.catalog.association_catalog import PartitionJoinInfo
 from hipscat.pixel_math import HealpixPixel
-from hipscat.pixel_tree import PixelAlignment, PixelAlignmentType
+from hipscat.pixel_tree import PixelAlignment, PixelAlignmentType, align_trees
 
 from lsdb.core.crossmatch.crossmatch_algorithms import CrossmatchAlgorithm
 from lsdb.core.crossmatch.kdtree_match import kd_tree_crossmatch
@@ -42,7 +42,7 @@ def crossmatch_catalog_data(
         algorithm: CrossmatchAlgorithmType | CrossmatchAlgorithm = CrossmatchAlgorithm.KD_TREE
 ) -> Tuple[dd.core.DataFrame, DaskDFPixelMap, PixelAlignment]:
     crossmatch_algorithm = dask.delayed(get_crossmatch_algorithm(algorithm))
-    alignment = PixelAlignment.align_trees(
+    alignment = align_trees(
         left.hc_structure.pixel_tree,
         right.hc_structure.pixel_tree,
         alignment_type=PixelAlignmentType.INNER
