@@ -15,7 +15,7 @@ from hipscat.pixel_tree.pixel_tree_builder import PixelTreeBuilder
 from lsdb.catalog.dataset.dataset import Dataset
 from lsdb.core.cone_search import cone_filter
 from lsdb.dask.crossmatch_catalog_data import crossmatch_catalog_data
-from lsdb.dask.join_catalog_data import join_catalog_data
+from lsdb.dask.join_catalog_data import join_catalog_data, join_catalog_data_on
 from lsdb.dask.skymap_catalog_data import skymap_catalog_data
 
 
@@ -87,12 +87,20 @@ class Catalog(Dataset):
         partition_index = self._ddf_pixel_map[hp_pixel]
         return partition_index
 
-    def join(self, other: Catalog, through: AssociationCatalog=None, suffixes: Tuple[str, str] | None = None) -> Catalog:
-        if through is None:
-            raise NotImplementedError("must specify through association catalog")
+    def join(
+            self,
+            other: Catalog,
+            through: AssociationCatalog=None,
+            left_on: str = None,
+            right_on: str = None,
+            suffixes: Tuple[str, str] | None = None
+    ) -> Catalog:
         if suffixes is None:
-            suffixes = (f"_{self.hc_structure.catalog_info.catalog_name}", f"_{other.hc_structure.catalog_info.catalog_name}")
-        ddf, ddf_map, alignment = join_catalog_data(self, other, through, suffixes=suffixes)
+            suffixes = ("", "")
+        if through is None:
+            ddf, ddf_map, alignment = join_catalog_data_on(self, other, left_on, right_on, suffixes=suffixes)
+        else:
+            ddf, ddf_map, alignment = join_catalog_data(self, other, through, suffixes=suffixes)
         new_catalog_info = dataclasses.replace(
             self.hc_structure.catalog_info,
             ra_column=self.hc_structure.catalog_info.ra_column + suffixes[0],

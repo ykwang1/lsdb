@@ -57,8 +57,8 @@ def perform_join(left: pd.DataFrame, right: pd.DataFrame, through: pd.DataFrame,
 
 
 @dask.delayed
-def perform_join_on(left: pd.DataFrame, right: pd.DataFrame, on: str):
-    return left.merge(right, on=on, suffixes=("left", "right"))
+def perform_join_on(left: pd.DataFrame, right: pd.DataFrame, left_on: str, right_on: str, suffixes: Tuple[str, str]):
+    return left.merge(right, left_on=left_on, right_on=right_on, suffixes=suffixes)
 
 
 @dask.delayed
@@ -132,4 +132,46 @@ def join_catalog_data(
     meta_df = pd.DataFrame(meta)
     meta_df.index.name = "_hipscat_index"
     ddf = dd.from_delayed(final_partitions, meta=meta_df)
+    return ddf, partition_map, alignment
+
+
+def join_catalog_data_on(
+        left: Catalog,
+        right: Catalog,
+        left_on: str = None,
+        right_on: str = None,
+        suffixes: Tuple[str, str] | None = None
+) -> Tuple[dd.core.DataFrame, DaskDFPixelMap, PixelAlignment]:
+    alignment = align_trees(
+        left.hc_structure.pixel_tree,
+        right.hc_structure.pixel_tree,
+        alignment_type=PixelAlignmentType.INNER
+    )
+    join_pixels = alignment.pixel_mapping
+    left_aligned_to_join_partitions = align_catalog_to_partitions(
+        left,
+        join_pixels,
+        order_col=PartitionJoinInfo.PRIMARY_ORDER_COLUMN_NAME,
+        pixel_col=PartitionJoinInfo.PRIMARY_PIXEL_COLUMN_NAME,
+    )
+    right_aligned_to_join_partitions = align_catalog_to_partitions(
+        right,
+        join_pixels,
+        order_col=PartitionJoinInfo.JOIN_ORDER_COLUMN_NAME,
+        pixel_col=PartitionJoinInfo.JOIN_PIXEL_COLUMN_NAME,
+    )
+    joined_partitions = [perform_join_on(left_df, right_df, left_on, right_on, suffixes) for left_df, right_df in zip(left_aligned_to_join_partitions, right_aligned_to_join_partitions)]
+    partition_map = {}
+    for i, (_, row) in enumerate(join_pixels.iterrows()):
+        pixel = HealpixPixel(order=row[PixelAlignment.ALIGNED_ORDER_COLUMN_NAME],
+                             pixel=row[PixelAlignment.ALIGNED_PIXEL_COLUMN_NAME])
+        partition_map[pixel] = i
+    meta = {}
+    for name, t in left._ddf.dtypes.items():
+        meta[name + suffixes[0]] = pd.Series(dtype=t)
+    for name, t in right._ddf.dtypes.items():
+        meta[name + suffixes[1]] = pd.Series(dtype=t)
+    meta_df = pd.DataFrame(meta)
+    meta_df.index.name = "_hipscat_index"
+    ddf = dd.from_delayed(joined_partitions, meta=meta_df)
     return ddf, partition_map, alignment
