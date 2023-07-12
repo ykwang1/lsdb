@@ -64,6 +64,9 @@ def crossmatch_catalog_data(
     pixels = [row[PixelAlignment.PRIMARY_PIXEL_COLUMN_NAME] for _, row in join_pixels.iterrows()]
     joined_partitions = [crossmatch_algorithm(left_df, right_df, order, pixel, left.hc_structure, right.hc_structure, suffixes) for left_df, right_df, order, pixel in zip(left_aligned_to_join_partitions, right_aligned_to_join_partitions, orders, pixels)]
     partition_map = {}
+    for i, (_, row) in enumerate(join_pixels.iterrows()):
+        pixel = HealpixPixel(order=row[PixelAlignment.ALIGNED_ORDER_COLUMN_NAME], pixel=row[PixelAlignment.ALIGNED_PIXEL_COLUMN_NAME])
+        partition_map[pixel] = i
     meta = {}
     for name, t in left._ddf.dtypes.items():
         meta[name + suffixes[0]] = pd.Series(dtype=t)
