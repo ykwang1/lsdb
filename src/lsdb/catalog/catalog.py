@@ -91,7 +91,7 @@ class Catalog(Dataset):
         if through is None:
             raise NotImplementedError("must specify through association catalog")
         if suffixes is None:
-            suffixes = ("", "")
+            suffixes = (f"_{self.hc_structure.catalog_info.catalog_name}", f"_{other.hc_structure.catalog_info.catalog_name}")
         ddf, ddf_map, alignment = join_catalog_data(self, other, through, suffixes=suffixes)
         new_catalog_info = dataclasses.replace(
             self.hc_structure.catalog_info,
@@ -103,7 +103,7 @@ class Catalog(Dataset):
 
     def crossmatch(self, other: Catalog, suffixes: Tuple[str, str] | None = None) -> Catalog:
         if suffixes is None:
-            suffixes = ("", "")
+            suffixes = (f"_{self.hc_structure.catalog_info.catalog_name}", f"_{other.hc_structure.catalog_info.catalog_name}")
         ddf, ddf_map, alignment = crossmatch_catalog_data(self, other, suffixes)
         new_catalog_info = dataclasses.replace(
             self.hc_structure.catalog_info,
