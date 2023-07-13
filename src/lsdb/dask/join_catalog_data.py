@@ -151,14 +151,14 @@ def join_catalog_data_on(
     left_aligned_to_join_partitions = align_catalog_to_partitions(
         left,
         join_pixels,
-        order_col=PartitionJoinInfo.PRIMARY_ORDER_COLUMN_NAME,
-        pixel_col=PartitionJoinInfo.PRIMARY_PIXEL_COLUMN_NAME,
+        order_col=PixelAlignment.PRIMARY_ORDER_COLUMN_NAME,
+        pixel_col=PixelAlignment.PRIMARY_PIXEL_COLUMN_NAME,
     )
     right_aligned_to_join_partitions = align_catalog_to_partitions(
         right,
         join_pixels,
-        order_col=PartitionJoinInfo.JOIN_ORDER_COLUMN_NAME,
-        pixel_col=PartitionJoinInfo.JOIN_PIXEL_COLUMN_NAME,
+        order_col=PixelAlignment.JOIN_ORDER_COLUMN_NAME,
+        pixel_col=PixelAlignment.JOIN_PIXEL_COLUMN_NAME,
     )
     joined_partitions = [perform_join_on(left_df, right_df, left_on, right_on, suffixes) for left_df, right_df in zip(left_aligned_to_join_partitions, right_aligned_to_join_partitions)]
     partition_map = {}
