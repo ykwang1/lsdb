@@ -10,6 +10,9 @@ from hipscat.catalog.association_catalog.partition_join_info import \
     PartitionJoinInfo
 from hipscat.pixel_math import HealpixPixel
 from hipscat.pixel_tree import PixelAlignmentType, PixelAlignment, align_trees
+from hipscat.pixel_tree.pixel_node_type import PixelNodeType
+from hipscat.pixel_tree.pixel_tree import PixelTree
+from hipscat.pixel_tree.pixel_tree_builder import PixelTreeBuilder
 
 if TYPE_CHECKING:
     from lsdb.catalog.association_catalog.association_catalog import \
@@ -58,7 +61,27 @@ def perform_join(left: pd.DataFrame, right: pd.DataFrame, through: pd.DataFrame,
 
 @dask.delayed
 def perform_join_on(left: pd.DataFrame, right: pd.DataFrame, left_on: str, right_on: str, suffixes: Tuple[str, str]):
-    return left.merge(right, left_on=left_on, right_on=right_on, suffixes=suffixes)
+    left_columns_renamed = {name: name + suffixes[0] for name in left.columns}
+    left = left.rename(columns=left_columns_renamed)
+    right_columns_renamed = {name: name + suffixes[1] for name in right.columns}
+    right = right.rename(columns=right_columns_renamed)
+    merged = left.reset_index().merge(right, left_on=left_on + suffixes[0], right_on=right_on + suffixes[1])
+    merged.set_index("_hipscat_index", inplace=True)
+    return merged
+
+
+@dask.delayed
+def merge_joined_sources(sources: List[pd.DataFrame], object_columns: List[str]):
+    object_columns = set(object_columns)
+    all_columns = pd.concat([df.columns.to_series() for df in sources])
+    all_non_object_columns = [col for col in all_columns if col not in object_columns]
+    matching_column_sources = []
+    for source in sources:
+        other_columns = [col for col in all_non_object_columns if col not in source.columns]
+        assign_columns = {col: None for col in other_columns}
+        source_with_all_cols = source.assign(**assign_columns)
+        matching_column_sources.append(source_with_all_cols)
+    return pd.concat(matching_column_sources)
 
 
 @dask.delayed
@@ -175,3 +198,42 @@ def join_catalog_data_on(
     meta_df.index.name = "_hipscat_index"
     ddf = dd.from_delayed(joined_partitions, meta=meta_df)
     return ddf, partition_map, alignment
+
+
+def join_to_sources_on(
+        objects: Catalog,
+        sources: List[Tuple[Catalog, str, str]],
+        suffixes: List[str]
+) -> Tuple[dd.core.DataFrame, DaskDFPixelMap, PixelTree]:
+    joined_sources = [
+        join_catalog_data_on(objects, source, left_on, right_on, (suffixes[0], suffix))
+        for ((source, left_on, right_on), suffix) in zip(sources, suffixes[1:])
+    ]
+    partitions_to_join = {}
+    for pixel in joined_sources[0][1]:
+        partitions_to_join[pixel] = []
+    for joined_source, partition_map, alignment in joined_sources:
+        partitions = joined_source.to_delayed()
+        for pixel, partition_index in partition_map.items():
+            if pixel not in partitions_to_join:
+                raise NotImplementedError("sources must have same partitioning")
+            partitions_to_join[pixel].append(partitions[partition_index])
+    partitions = []
+    partition_map = {}
+    object_columns = [col + suffixes[0] for col in objects._ddf.columns]
+    for (index, (pixel, pixel_partitions)) in enumerate(partitions_to_join.items()):
+        partitions.append(merge_joined_sources(pixel_partitions, object_columns))
+        partition_map[pixel] = index
+    meta = {}
+    for name, t in objects._ddf.dtypes.items():
+        meta[name + suffixes[0]] = pd.Series(dtype=t)
+    for i, (source, _, _) in enumerate(sources):
+        for name, t in source._ddf.dtypes.items():
+            meta[name + suffixes[i+1]] = pd.Series(dtype=t)
+    meta_df = pd.DataFrame(meta)
+    meta_df.index.name = "_hipscat_index"
+    ddf = dd.from_delayed(partitions, meta=meta_df, verify_meta=False)
+    tree_builder = PixelTreeBuilder()
+    for pixel in partition_map:
+        tree_builder.create_node_and_parent_if_not_exist(pixel, PixelNodeType.LEAF)
+    return ddf, partition_map, tree_builder.build()
