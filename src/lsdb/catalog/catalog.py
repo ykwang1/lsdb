@@ -16,7 +16,7 @@ from lsdb.core.cone_search import cone_filter
 from lsdb.dask.crossmatch_catalog_data import crossmatch_catalog_data
 from lsdb.dask.join_catalog_data import join_catalog_data, join_catalog_data_on, join_to_sources_on
 from lsdb.dask.skymap_catalog_data import skymap_catalog_data
-
+from lsdb.io.to_hipscat import write_catalog
 
 if TYPE_CHECKING:
     from lsdb.catalog.association_catalog.association_catalog import \
@@ -191,3 +191,5 @@ class Catalog(Dataset):
         img = skymap_catalog_data(self, col=col, order=k, func=f)
         return img
 
+    def to_hipscat(self, path: str, catalog_name=None):
+        write_catalog(self, path, catalog_name=catalog_name)
