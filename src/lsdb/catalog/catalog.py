@@ -31,7 +31,6 @@ class Catalog(Dataset):
     spatial operations.
 
     Attributes:
-        name: Name of the catalog
         hc_structure: `hipscat.Catalog` object representing the structure
                       and metadata of the HiPSCat catalog
     """
@@ -56,6 +55,20 @@ class Catalog(Dataset):
         self._ddf_pixel_map = ddf_pixel_map
 
     def get_partition(self, order: int, pixel: int) -> dd.core.DataFrame:
+        """Get the dask partition for a given HEALPix pixel
+
+        Args:
+            order: Order of HEALPix pixel
+            pixel: HEALPix pixel number in NESTED ordering scheme
+        Returns:
+            Dask Dataframe with a single partition with data at that pixel
+        Raises:
+            Value error if no data exists for the specified pixel
+        """
+        partition_index = self.get_partition_index(order, pixel)
+        return self._ddf.partitions[partition_index]
+
+    def get_partition_index(self, order: int, pixel: int) -> int:
         """Get the dask partition for a given HEALPix pixel
 
         Args:
@@ -174,19 +187,19 @@ class Catalog(Dataset):
 
     def where(self, qarg: str) -> Catalog:
         return self.query(qarg=qarg)
-    
+
     def assign(self, **kwargs) -> Catalog:
         if len(kwargs) == 0 or len(kwargs) > 1:
             raise Exception("Invalid assigning of column. Must be a single lambda function")
         ddf = self._ddf.assign(**kwargs)
         return Catalog(ddf, self._ddf_pixel_map, self.hc_structure)
-    
+
     def for_each(self, ufunc, **kwargs) -> Catalog:
         if "cat_info" not in kwargs.keys():
             kwargs["cat_info"] = self.hc_structure.catalog_info
         ddf = self._ddf.groupby("_hipscat_index").apply(ufunc, **kwargs)
         return Catalog(ddf, self._ddf_pixel_map, self.hc_structure)
-    
+
     def compute_skymap(self, col, f=np.mean, k=6) -> np.ndarray:
         img = skymap_catalog_data(self, col=col, order=k, func=f)
         return img
