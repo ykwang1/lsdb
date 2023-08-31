@@ -4,6 +4,7 @@ import dataclasses
 from typing import Type, overload
 from typing import Dict, Type
 
+from hipscat.catalog.dataset import BaseCatalogInfo
 
 from lsdb.catalog.catalog import Catalog
 from lsdb.loaders.hipscat.hipscat_loader_factory import CatalogTypeVar, get_loader_for_type
@@ -13,6 +14,7 @@ from lsdb.catalog.catalog import Catalog
 from lsdb.catalog.dataset.dataset import Dataset
 from lsdb.loaders.hipscat.hipscat_loader_factory import CatalogTypeVar, get_loader_for_type
 from lsdb.loaders.hipscat.hipscat_loading_config import HipscatLoadingConfig
+import hipscat as hc
 
 dataset_class_for_catalog_type: Dict[CatalogType, Type[Dataset]] = {
     CatalogType.OBJECT: Catalog,
