@@ -18,5 +18,7 @@ loader_class_for_catalog_type = {
 
 
 def get_loader_for_type(catalog_type_to_use: CatalogTypeVar, path: str, config: HipscatLoadingConfig):
+    if catalog_type_to_use not in loader_class_for_catalog_type:
+        raise ValueError("incorrect type of catalog")
     LoaderClass = loader_class_for_catalog_type[catalog_type_to_use]
     return LoaderClass(path, config)
