@@ -33,6 +33,7 @@ class DataframeCatalogLoader:
         highest_order: int = 5,
         partition_size: float | None = None,
         threshold: int | None = None,
+        set_hipscat_index: bool = True,
         **kwargs,
     ) -> None:
         """Initializes a DataframeCatalogLoader
@@ -50,6 +51,7 @@ class DataframeCatalogLoader:
         self.highest_order = highest_order
         self.threshold = self._calculate_threshold(partition_size, threshold)
         self.catalog_info = self._create_catalog_info(**kwargs)
+        self.set_hipscat_index = set_hipscat_index
 
     def _calculate_threshold(self, partition_size: float | None = None, threshold: int | None = None) -> int:
         """Calculates the number of pixels per HEALPix pixel (threshold)
@@ -97,7 +99,8 @@ class DataframeCatalogLoader:
         Returns:
             Catalog object with data from the source given at loader initialization
         """
-        self._set_hipscat_index()
+        if self.set_hipscat_index:
+            self._set_hipscat_index()
         pixel_map = self._compute_pixel_map()
         ddf, ddf_pixel_map = self._generate_dask_df_and_map(pixel_map)
         healpix_pixels = list(pixel_map.keys())
