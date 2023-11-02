@@ -14,7 +14,8 @@ class lsdb_client():
         if self.dask_on_ray:
             self.client = ray.init(
                 num_cpus=self.num_workers,
-                _temp_dir=self.temp_dir
+                _temp_dir=self.temp_dir,
+                ignore_reinit_error=True
             )
             enable_dask_on_ray()
         else:
