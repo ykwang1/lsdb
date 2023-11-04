@@ -88,7 +88,6 @@ class DataframeCatalogLoader:
             The catalog info object
         """
         valid_catalog_types = [CatalogType.OBJECT, CatalogType.SOURCE]
-        print(kwargs)
         catalog_info = CatalogInfo(**kwargs)
         if catalog_info.catalog_type not in valid_catalog_types:
             raise ValueError("Catalog must be of type OBJECT or SOURCE")

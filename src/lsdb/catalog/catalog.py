@@ -328,5 +328,11 @@ class Catalog(Dataset):
         hc_catalog = hc.catalog.Catalog(new_catalog_info, tree)
         return Catalog(ddf, ddf_map, hc_catalog)
 
+    def for_each(self, ufunc, meta, key="_hipscat_index", **kwargs) -> Catalog:
+        dfs = self._ddf.to_delayed()
+        for_each_partition = [df.groupby([key]).apply(ufunc, **kwargs) for df in dfs]
+        for_eached_ddf = dd.from_delayed(for_each_partition, meta=meta)
+        return Catalog(for_eached_ddf, self._ddf_pixel_map, self.hc_structure)
+
     def to_hipscat(self, path: str, catalog_name=None):
         write_catalog(self, path, catalog_name=catalog_name)
